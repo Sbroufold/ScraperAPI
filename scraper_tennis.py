@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import time
 import unicodedata
 import re
+import tempfile
 
 def normaliser(nom):
     termes_a_ignorer = [
@@ -33,6 +34,7 @@ def scraper_tennis():
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
+    options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
     driver = webdriver.Chrome(options=options)
 
     try:
