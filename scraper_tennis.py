@@ -1,11 +1,7 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
+import requests
 from bs4 import BeautifulSoup
-import time
 import unicodedata
 import re
-import tempfile
 
 def normaliser(nom):
     termes_a_ignorer = [
@@ -18,32 +14,17 @@ def normaliser(nom):
     nom = re.sub(r'[^a-zA-Z]', '', nom).lower()
     return nom
 
-def scroll_jusqua_fin_matchs(driver):
-    max_scrolls = 30
-    previous_height = driver.execute_script("return document.body.scrollHeight")
-    for _ in range(max_scrolls):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == previous_height:
-            break
-        previous_height = new_height
-
 def scraper_tennis():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
-    driver = webdriver.Chrome(options=options)
+    url = "https://www.unibet.fr/sport/tennis?filter=Top+Paris&subFilter=Vainqueur+du+match"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
     try:
-        driver.get("https://www.unibet.fr/sport/tennis?filter=Top+Paris&subFilter=Vainqueur+du+match")
-        time.sleep(6)
-        scroll_jusqua_fin_matchs(driver)
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
 
-        html = driver.page_source
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(response.text, 'html.parser')
         events = soup.select("section.eventcard--toplight")
 
         matchs = []
@@ -55,6 +36,7 @@ def scraper_tennis():
                 team1 = equipes[0].text.strip()
                 team2 = equipes[1].text.strip()
                 nom_match = f"{team1} - {team2}"
+
                 valeurs = e.select(".oddbox-value span")
                 cotes = []
                 for v in valeurs[:2]:
@@ -63,6 +45,7 @@ def scraper_tennis():
                         cotes.append(cote)
                     except:
                         continue
+
                 heure_div = e.select_one(".eventcard-header-meta")
                 heure = heure_div.text.strip().split()[0] if heure_div else "?"
 
@@ -72,11 +55,11 @@ def scraper_tennis():
                         "cotes": cotes,
                         "heure": heure
                     })
-
-            except Exception as err:
+            except:
                 continue
 
         return {"matchs": matchs}
 
-    finally:
-        driver.quit()
+    except Exception as e:
+        return {"error": str(e)}
+
